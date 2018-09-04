@@ -1,0 +1,116 @@
+//identify the fields to manipulate
+def customFields = get("/rest/api/2/field")
+            .asObject(List)
+            .body
+            .findAll { (it as Map) } as List<Map>
+
+def affectsField = customFields.find { it.name == 'Affects Version/s' }?.id
+def discoveredReleaseField = customFields.find { it.name == 'Discovered in Major Release' }?.id
+def helloField = customFields.find { it.name == 'hello' }?.id
+def updated = 0;
+
+// checking if we get the right id-s
+//logger.info("discovered Release Field ID is ${discoveredReleaseField}")
+//logger.info("affected versions Field ID is ${affectsField}")
+//logger.info("hello Field id is ${helloField}")
+
+
+
+//find all  Bug issues and make a list of them
+Map<String, Object> result = get('/rest/api/2/search')
+        .queryString('jql', 'issuetype = Bug')
+        .asObject(Map)
+        .body 
+        
+        
+   def listOfIssues = (List<Map<String, Object>>) result.issues
+ 
+ //checking the list of issues  
+logger.info("listofissues is ${listOfIssues}")
+
+
+
+       
+   //Iterate through issuess in the list of issues
+  for (Map<String, Map> issue : listOfIssues) {
+
+
+        
+        // access the values of Disovered in Release Field
+       def discoveredReleaseVal = issue.fields[discoveredReleaseField]['value'] as String
+        logger.info("discoveredRelease Field value is ${discoveredReleaseVal}")
+
+
+        //def fields = issue.fields as Map
+        //def values = fields[affectsField]['name'] as List<Map>
+        //def fieldValues = values.collect {it.name} //extracting and storing all the options from field
+          //logger.info("affected values is currently ${values}")
+          
+ 
+    
+           // access the value of affected Versions Field
+       def affectedVal = issue.fields[affectsField] ['name']  as String
+        logger.info("affected versions Field value is ${affectedVal}")
+  
+             
+        def splitted = affectedVal.split()
+        def affectedvalArray = splitted as String[]
+          
+        
+       // def affectedvalArray 
+       //logger.info("affectedvalue array contains ${affectedvalArray}")
+       
+   //logger.info("affectedvalue array length is ${affectedvalArray.length}")
+    
+    
+ 
+       // def affectedvalArray 
+       //logger.info("affectedvalue array contains ${affectedvalArray}")
+       
+   //logger.info("affectedvalue array length is ${affectedvalArray.length}")
+    
+    
+     //condition: discovered in Release field is not empt and has no same value as Affected Versions Field
+      if(discoveredReleaseVal!= null && discoveredReleaseVal!= affectedVal)
+        {    
+            //change the value of Affected Versions Field
+            // affectedVal = (affectedVal + discoveredReleaseVal)  as String
+             affectedVal = affectedvalArray + discoveredReleaseVal
+             //splitmeArray.add(discoveredReleaseVal)
+          
+        }
+      
+   
+      //in case they have the same value dont do anything
+      else if(affectedVal == discoveredReleaseVal)
+        {affectedVal = affectedVal}
+        logger.info("affectedvalue should be ${affectedVal}")
+
+        
+      // for (i = 0; i < affectedVal.length; i++) {
+      //  affectedvalArray[i] = splitted.charAt([i]);
+        //0,,}
+      
+        
+        //updating the  field with the new text
+         def updateIssue = put("/rest/api/2/issue/${issue.key}")
+               .header("Content-Type", "application/json")
+                .queryString("overrideScreenSecurity", Boolean.TRUE)
+          .body([
+        fields:[
+                affectsField:[name:affectedVal] 
+                  
+        ]
+              ] )
+                .asString()
+                
+            if (updateIssue.status == 204) {
+ println "updated success"
+              updated = updated +1;
+           } else {
+               println "${updateIssue.status}: ${updateIssue.body}"
+              }
+              
+           
+        }
+
